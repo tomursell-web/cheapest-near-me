@@ -175,20 +175,23 @@ if not query and st.session_state.search_query:
 
 # ── Category buttons (shown only on home) ────────────────────────────────────
 if not has_query:
-    st.write("")
+st.write("")
     st.markdown("**Browse by category:**")
-    cat_cols = st.columns(len(CATEGORIES))
-    for i, cat in enumerate(CATEGORIES):
-        icon = CATEGORY_ICONS.get(cat, "")
-        with cat_cols[i]:
-            if st.button(f"{icon}\n\n{cat}", key=f"cat_{cat}", use_container_width=True):
-                st.session_state.search_query  = cat
-                st.session_state.search_result = {
-                    "search_terms":    [cat],
-                    "category":        cat,
-                    "friendly_message": f"Browsing {cat.lower()} near you...",
-                }
-                st.rerun()
+    cats_per_row = 4
+    for row_start in range(0, len(CATEGORIES), cats_per_row):
+        row_cats = CATEGORIES[row_start:row_start + cats_per_row]
+        cols = st.columns(4)
+        for i, cat in enumerate(row_cats):
+            icon = CATEGORY_ICONS.get(cat, "")
+            with cols[i]:
+                if st.button(f"{icon} {cat.title()}", key=f"cat_{cat}", use_container_width=True):
+                    st.session_state.search_query = cat
+                    st.session_state.search_result = {
+                        "search_terms": [cat],
+                        "category": cat,
+                        "friendly_message": f"Browsing {cat.lower()} near you...",
+                    }
+                    st.rerun()
 
     st.divider()
     st.markdown("### How it works")
