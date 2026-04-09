@@ -25,13 +25,9 @@ from database.mock_data import (
 
 init_session()
 
-# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* Give the main container breathing room */
 .block-container { padding-top: 3rem !important; max-width: 780px; }
-
-/* Hero — centred before any search */
 .hero { text-align: center; padding: 3rem 1rem 1.5rem; }
 .hero-title {
     font-size: 3rem;
@@ -45,14 +41,6 @@ st.markdown("""
     color: #666;
     margin-top: 0.4rem;
 }
-
-/* Compact header shown after search */
-.compact-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-}
 .compact-title {
     font-size: 1.6rem;
     font-weight: 800;
@@ -60,37 +48,29 @@ st.markdown("""
     margin: 0;
     white-space: nowrap;
 }
-
-/* Search box */
 .stTextInput > div > div > input {
     font-size: 1.1rem !important;
     border-radius: 28px !important;
     border: 2px solid #dfe1e5 !important;
     padding: 0.75rem 1.4rem !important;
     box-shadow: none !important;
-    transition: border-color 0.2s, box-shadow 0.2s;
 }
 .stTextInput > div > div > input:focus {
     border-color: #4285f4 !important;
     box-shadow: 0 1px 8px rgba(66,133,244,.25) !important;
 }
-
-/* Category buttons */
 div[data-testid="column"] .stButton > button {
     border-radius: 14px;
     border: 2px solid #e8eaed;
     background: #fff;
-    font-size: 1rem;
+    font-size: 0.95rem;
     padding: 0.65rem 0.5rem;
-    transition: border-color 0.15s, box-shadow 0.15s;
     width: 100%;
 }
 div[data-testid="column"] .stButton > button:hover {
     border-color: #4285f4;
     box-shadow: 0 2px 8px rgba(66,133,244,.18);
 }
-
-/* Result cards */
 .result-card {
     border-radius: 14px;
     border: 1.5px solid #e8eaed;
@@ -98,10 +78,7 @@ div[data-testid="column"] .stButton > button:hover {
     margin-bottom: 0.7rem;
     background: #fff;
 }
-.result-card-best {
-    border-color: #34a853;
-    background: #f6ffed;
-}
+.result-card-best { border-color: #34a853; background: #f6ffed; }
 .price-main { font-size: 1.55rem; font-weight: 800; color: #34a853; }
 .price-other { font-size: 1.55rem; font-weight: 800; color: #4285f4; }
 .best-pill {
@@ -128,13 +105,10 @@ div[data-testid="column"] .stButton > button:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
 render_sidebar()
 
-# ── Search state ──────────────────────────────────────────────────────────────
 has_query = bool(st.session_state.search_query)
 
-# ── Hero or compact header ────────────────────────────────────────────────────
 if not has_query:
     st.markdown("""
     <div class="hero">
@@ -148,7 +122,6 @@ else:
         unsafe_allow_html=True,
     )
 
-# ── Search box + button ───────────────────────────────────────────────────────
 col_input, col_btn = st.columns([5, 1])
 with col_input:
     query = st.text_input(
@@ -161,21 +134,18 @@ with col_input:
 with col_btn:
     search_clicked = st.button("Search", type="primary", use_container_width=True)
 
-# Trigger search on button click or Enter (query changed)
 if search_clicked or (query != st.session_state.search_query and query):
     st.session_state.search_query = query
-    st.session_state.search_result = None   # reset so AI runs fresh
+    st.session_state.search_result = None
     st.rerun()
 
-# Clear search if box is emptied
 if not query and st.session_state.search_query:
     st.session_state.search_query = ""
     st.session_state.search_result = None
     st.rerun()
 
-# ── Category buttons (shown only on home) ────────────────────────────────────
 if not has_query:
-st.write("")
+    st.write("")
     st.markdown("**Browse by category:**")
     cats_per_row = 4
     for row_start in range(0, len(CATEGORIES), cats_per_row):
@@ -201,34 +171,28 @@ st.write("")
     c3.info("**3. Save to basket** to plan your whole shopping trip")
     st.stop()
 
-# ── Run AI interpretation (once per new query) ────────────────────────────────
 if st.session_state.search_result is None:
     with st.spinner("Just a moment..."):
         st.session_state.search_result = ai_interpret_search(st.session_state.search_query)
 
 interpretation = st.session_state.search_result
 
-# Friendly AI message
 st.markdown(
     f'<div class="friendly-msg">🔍 {interpretation["friendly_message"]}</div>',
     unsafe_allow_html=True,
 )
 
-# ── Find matching products ────────────────────────────────────────────────────
 products = db_search_products(
     interpretation["search_terms"],
     interpretation.get("category"),
 )
 
-# If nothing found with category filter, try without
 if not products and interpretation.get("category"):
     products = db_search_products(interpretation["search_terms"], None)
 
-# If still nothing, fall back to category browse
 if not products and interpretation.get("category"):
     products = products_by_category(interpretation["category"])
 
-# ── Results ───────────────────────────────────────────────────────────────────
 if not products:
     st.markdown("### Nothing found nearby")
     st.write(
@@ -245,14 +209,16 @@ for prod in products:
     in_basket = any(x["id"] == prod["id"] for x in st.session_state.basket)
 
     with st.container():
-        # Product header row
         h_col, b_col = st.columns([5, 2])
         with h_col:
-            st.markdown(f"**{prod['name']}** &nbsp; <span style='color:#888;font-size:0.85rem'>{prod.get('unit','')}</span>", unsafe_allow_html=True)
+            st.markdown(
+                f"**{prod['name']}** &nbsp; "
+                f"<span style='color:#888;font-size:0.85rem'>{prod.get('unit','')}</span>",
+                unsafe_allow_html=True,
+            )
         with b_col:
             if in_basket:
-                st.markdown("&nbsp;", unsafe_allow_html=True)
-                st.success("In basket", icon="✓")
+                st.success("In basket")
             else:
                 if st.button("+ Basket", key=f"add_{prod['id']}", use_container_width=True):
                     st.session_state.basket.append(prod)
@@ -263,7 +229,6 @@ for prod in products:
             st.divider()
             continue
 
-        # Price cards
         for i, r in enumerate(rows):
             is_best = i == 0
             card_class = "result-card result-card-best" if is_best else "result-card"
