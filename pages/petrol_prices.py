@@ -141,8 +141,8 @@ def fetch_live_prices(lat, lng, radius_mi, fuel):
                     slat = float(s.get("lat", lat))
                     slng = float(s.get("lng", lng))
                     results.append({
-                        "name": s.get("name", "Unknown"),
-                        "address": s.get("address", ""),
+    "name": s.get("name") or s.get("station_name") or s.get("brand") or s.get("company") or s.get("title") or "Petrol Station",
+    "address": s.get("address") or s.get("street") or s.get("location") or "",
                         "lat": slat,
                         "lng": slng,
                         "price_p": float(price),
