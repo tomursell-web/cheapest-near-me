@@ -13,12 +13,11 @@ import folium
 from streamlit_folium import st_folium
 
 from utils import render_sidebar, init_session, distance_words, haversine
-from database.mock_data import SHOPS, PRICES, PRODUCTS, PRODUCT_BY_ID, CATEGORY_ICONS
+from database.mock_data import MOCK_SHOPS, PRODUCTS, CATEGORIES, CATEGORY_ICONS
 
 init_session()
 render_sidebar()
 
-# ── Page header ───────────────────────────────────────────────────────────────
 st.title("🗺️ Shops Near You")
 st.caption(
     f"Showing shops near **{st.session_state.postcode_label}** "
@@ -29,10 +28,8 @@ st.caption(
 user_lat = st.session_state.user_lat
 user_lng = st.session_state.user_lng
 
-# ── Controls ──────────────────────────────────────────────────────────────────
 col_filter, col_radius = st.columns([3, 2])
 with col_filter:
-    from database.mock_data import CATEGORIES
     category_filter = st.selectbox(
         "Show prices for category",
         ["All categories"] + list(CATEGORIES),
@@ -41,24 +38,25 @@ with col_filter:
 with col_radius:
     radius_km = st.slider("Search radius (km)", 0.5, 10.0, 3.0, 0.5, key="map_radius")
 
-# ── Compute basket totals per shop ────────────────────────────────────────────
-def basket_totals_per_shop() -> dict[str, float]:
-    totals: dict[str, float] = {}
+
+def basket_totals_per_shop() -> dict:
+    totals = {}
     for item in st.session_state.basket:
-        for shop_id, price in PRICES.get(item["id"], {}).items():
-            totals[shop_id] = totals.get(shop_id, 0.0) + price
+        for shop in MOCK_SHOPS:
+            if item["id"] in shop["stock"]:
+                sid = shop["id"]
+                totals[sid] = totals.get(sid, 0.0) + shop["stock"][item["id"]]
     return totals
+
 
 basket_totals = basket_totals_per_shop()
 cheapest_shop_id = min(basket_totals, key=basket_totals.get) if basket_totals else None
 
-# ── Filter shops to radius ───────────────────────────────────────────────────
 nearby_shops = [
-    s for s in SHOPS
+    s for s in MOCK_SHOPS
     if haversine(user_lat, user_lng, s["lat"], s["lng"]) <= radius_km
 ]
 
-# ── Build map ────────────────────────────────────────────────────────────────
 m = folium.Map(
     location=[user_lat, user_lng],
     zoom_start=14,
@@ -66,7 +64,6 @@ m = folium.Map(
     prefer_canvas=True,
 )
 
-# Radius circle
 folium.Circle(
     location=[user_lat, user_lng],
     radius=radius_km * 1000,
@@ -76,7 +73,6 @@ folium.Circle(
     tooltip=f"{radius_km:.1f} km radius",
 ).add_to(m)
 
-# User location pin
 folium.Marker(
     location=[user_lat, user_lng],
     tooltip="You are here",
@@ -84,7 +80,6 @@ folium.Marker(
     icon=folium.Icon(color="purple", icon="home", prefix="fa"),
 ).add_to(m)
 
-# Shop pins
 for shop in nearby_shops:
     dist = haversine(user_lat, user_lng, shop["lat"], shop["lng"])
     dist_str = distance_words(dist)
@@ -119,7 +114,6 @@ for shop in nearby_shops:
         icon=folium.Icon(color=pin_color, icon="shopping-cart", prefix="fa"),
     ).add_to(m)
 
-# ── Layout: map + legend ──────────────────────────────────────────────────────
 map_col, legend_col = st.columns([3, 1])
 
 with map_col:
@@ -154,7 +148,6 @@ with legend_col:
     else:
         st.info("Add items on the home page to see basket totals here.")
 
-# ── Product price table below map ─────────────────────────────────────────────
 st.divider()
 st.subheader("All prices at nearby shops")
 
