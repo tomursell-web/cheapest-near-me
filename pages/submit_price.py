@@ -14,7 +14,7 @@ from utils import render_sidebar, init_session, lookup_postcode
 init_session()
 render_sidebar()
 
-from database.mock_data import PRODUCTS, SHOPS, CATEGORIES, CATEGORY_ICONS
+from database.mock_data import PRODUCTS, MOCK_SHOPS, CATEGORIES, CATEGORY_ICONS
 
 st.title("📝 Submit a Price")
 st.write(
@@ -23,10 +23,8 @@ st.write(
 )
 st.divider()
 
-# ── Form ──────────────────────────────────────────────────────────────────────
 with st.form("submit_price_form", clear_on_submit=True):
 
-    # Location
     st.markdown("#### Where did you see this price?")
     col_pc, col_shop = st.columns(2)
     with col_pc:
@@ -36,7 +34,7 @@ with st.form("submit_price_form", clear_on_submit=True):
             help="The postcode of the shop, not your home.",
         )
     with col_shop:
-        shop_options = {f"{s['name']} — {s['address']}": s["id"] for s in SHOPS}
+        shop_options = {f"{s['name']} — {s['address']}": s["id"] for s in MOCK_SHOPS}
         shop_options["Other shop (type below)"] = "__new__"
         chosen_shop_label = st.selectbox("Shop name", list(shop_options.keys()))
         chosen_shop_id = shop_options[chosen_shop_label]
@@ -47,7 +45,6 @@ with st.form("submit_price_form", clear_on_submit=True):
 
     st.write("")
 
-    # Product
     st.markdown("#### What did you buy?")
     cat_filter = st.selectbox(
         "Category",
@@ -58,22 +55,17 @@ with st.form("submit_price_form", clear_on_submit=True):
         PRODUCTS if cat_filter == "All"
         else [p for p in PRODUCTS if p["category"] == cat_filter]
     )
-    prod_options = {f"{p['name']} ({p['unit']})": p["id"] for p in filtered_prods}
+    prod_options = {p["name"]: p["id"] for p in filtered_prods}
     prod_options["Something else (type below)"] = "__new__"
     chosen_prod_label = st.selectbox("Product", list(prod_options.keys()))
     chosen_prod_id = prod_options[chosen_prod_label]
 
-    new_prod_name = new_prod_unit = ""
+    new_prod_name = ""
     if chosen_prod_id == "__new__":
-        c1, c2 = st.columns([3, 1])
-        with c1:
-            new_prod_name = st.text_input("Product name", placeholder="e.g. Almond Milk 1L")
-        with c2:
-            new_prod_unit = st.text_input("Size / unit", placeholder="e.g. 1 litre")
+        new_prod_name = st.text_input("Product name", placeholder="e.g. Almond Milk 1L")
 
     st.write("")
 
-    # Price
     st.markdown("#### How much did it cost?")
     price_val = st.number_input(
         "Price (£)",
@@ -98,9 +90,7 @@ with st.form("submit_price_form", clear_on_submit=True):
         use_container_width=True,
     )
 
-# ── Submission logic ──────────────────────────────────────────────────────────
 if submitted:
-    # Validate
     errors = []
     if chosen_shop_id == "__new__" and not new_shop_name.strip():
         errors.append("Please enter the shop name.")
@@ -115,12 +105,10 @@ if submitted:
     else:
         saved = False
 
-        # Try Supabase
         try:
             from database.supabase_client import get_client
             client = get_client()
 
-            # Resolve or create shop
             if chosen_shop_id == "__new__":
                 lat, lng = st.session_state.user_lat, st.session_state.user_lng
                 if shop_postcode.strip():
@@ -137,11 +125,10 @@ if submitted:
             else:
                 final_shop_id = chosen_shop_id
 
-            # Resolve or create product
             if chosen_prod_id == "__new__":
                 prod_resp = (
                     client.table("products")
-                    .insert({"name": new_prod_name.strip(), "category": cat_filter if cat_filter != "All" else "Other"})
+                    .insert({"name": new_prod_name.strip(), "category": cat_filter if cat_filter != "All" else "other"})
                     .execute()
                 )
                 final_prod_id = prod_resp.data[0]["id"]
@@ -157,10 +144,10 @@ if submitted:
             }).execute()
             saved = True
         except Exception:
-            pass  # Fall through to mock confirmation
+            pass
 
-        prod_display = new_prod_name or chosen_prod_label.split(" (")[0]
-        shop_display = new_shop_name or (chosen_shop_label.split(" — ")[0] if chosen_shop_id != "__new__" else new_shop_name)
+        prod_display = new_prod_name or chosen_prod_label
+        shop_display = new_shop_name or chosen_shop_label.split(" — ")[0]
 
         st.success(
             f"Thank you! We've recorded **{prod_display}** at **£{price_val:.2f}** "
@@ -171,20 +158,19 @@ if submitted:
         if not saved:
             st.info(
                 "This price has been saved for your session. "
-                "Connect Supabase to share it with everyone — see the README for setup."
+                "Connect Supabase to share it with everyone."
             )
 
-# ── Recent submissions (mock) ─────────────────────────────────────────────────
 st.divider()
 st.subheader("Recently reported")
 st.caption("Prices submitted by shoppers in the last 24 hours.")
 
 recent = [
-    {"product": "Whole Milk 2L",           "shop": "Lidl, Brixton",         "price": 1.09, "when": "5 min ago"},
-    {"product": "Paracetamol 500mg (16)",   "shop": "Tesco Express, Vauxhall","price": 0.65, "when": "22 min ago"},
-    {"product": "Toilet Roll (9 pack)",     "shop": "Aldi, Stockwell",        "price": 2.69, "when": "1 hour ago"},
-    {"product": "White Bread 800g",         "shop": "Sainsbury's, Waterloo",  "price": 1.10, "when": "2 hours ago"},
-    {"product": "Washing Up Liquid 500ml",  "shop": "Co-op Food, Kennington", "price": 1.25, "when": "3 hours ago"},
+    {"product": "Whole Milk 2L",          "shop": "Lidl",              "price": 1.09, "when": "5 min ago"},
+    {"product": "Paracetamol 500mg 16pk", "shop": "Tesco Express",     "price": 0.65, "when": "22 min ago"},
+    {"product": "Toilet Roll 9 pack",     "shop": "Aldi",              "price": 2.69, "when": "1 hour ago"},
+    {"product": "White Bread 800g",       "shop": "Sainsbury's Local", "price": 1.10, "when": "2 hours ago"},
+    {"product": "Washing Up Liquid",      "shop": "Co-op Food",        "price": 1.25, "when": "3 hours ago"},
 ]
 
 for r in recent:
